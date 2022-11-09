@@ -55,22 +55,42 @@ router.post("/login", async (req, res) => {
     email: req.body.email,
     password: req.body.password,
   };
-  let user = await User.findOne({ email: userCred.email }); //find the email in db
-
-  if (!user) {
-    res.json({ success: false, msg: "User is not Found" });
-  } else {
-    let isMatch = await bcrypt.compare(userCred.password, user.password); // checking the password
-    if (!isMatch) {
-      res.json({ success: false, msg: "Incorrect Password" });
-    } else {
-      payload = { id: user._id, email: user.email, name: user.name };
+  const adminCred = {
+    email: "admin@gmail.com",
+    password: "admin123",
+  };
+  if (userCred.email === adminCred.email) {
+    if (userCred.password === adminCred.password) {
+      payload = { email: adminCred.email };
       let token = jwt.sign(payload, "ict");
       res.json({
         success: true,
         token: `Bearer ${token}`,
-        user: { user: user.name, user: user.email },
+        user: { email: adminCred.email },
+        isAdmin: true,
       });
+    } else {
+      res.json({ success: false, msg: "Incorrect Password" });
+    }
+  } else {
+    let user = await User.findOne({ email: userCred.email }); //find the email in db
+
+    if (!user) {
+      res.json({ success: false, msg: "User is not Found" });
+    } else {
+      let isMatch = await bcrypt.compare(userCred.password, user.password); // checking the password
+      if (!isMatch) {
+        res.json({ success: false, msg: "Incorrect Password" });
+      } else {
+        payload = { email: user.email };
+        let token = jwt.sign(payload, "ict");
+        res.json({
+          success: true,
+          token: `Bearer ${token}`,
+          isAdmin: false,
+          user: { name: user.name, email: user.email, id: user._id },
+        });
+      }
     }
   }
 });
