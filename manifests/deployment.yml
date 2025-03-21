@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: sinanznxprojectbackend 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sinanznxprojectbackend
+  template:
+    metadata:
+      labels:
+        app: sinanznxprojectbackend 
+    spec:
+      containers:
+        - name: sinanznxprojectbackend 
+          image: sinandemoregistry.azurecr.io/sinanznxprojectbackend
+          ports:
+          - containerPort: 5000
