@@ -1,0 +1,27 @@
+name: backend CI 
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+    build-and-test:
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: download the repo 
+          uses: actions/checkout@v3
+
+        - name: setup-node
+          uses: actions/setup-node@v3
+          with:
+            node-version: 18
+
+        - name: install dependencies
+          uses: npm install
+
+        - name: run and test
+          uses: npm test
+        
