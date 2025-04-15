@@ -7,7 +7,7 @@ const randomBytes = promisify(crypto.randomBytes);
 dotenv.config();
 
 const region = "ap-south-1";
-const bucketName = "ict-ecommerce";
+const bucketName = "Terraform";
 const accessKey = process.env.AWS_ACCESS_KEY_ID;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
