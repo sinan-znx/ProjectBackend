@@ -1,4 +1,4 @@
-const aws = require("aws-sdk");
+const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = require("@azure/storage-blob");
 const dotenv = require("dotenv");
 const crypto = require("crypto");
 const { promisify } = require("util");
@@ -6,28 +6,33 @@ const randomBytes = promisify(crypto.randomBytes);
 
 dotenv.config();
 
-const region = "ap-south-1";
-const bucketName = "ict-ecommerce";
-const accessKey = process.env.AWS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
+const containerName = process.env.AZURE_CONTAINER_NAME || "ecommerce";
 
-const s3 = new aws.S3({
-  region,
-  accessKey,
-  secretAccessKey,
-  signatureVersion: "v4",
-});
+const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
+const blobServiceClient = new BlobServiceClient(
+  `https://${accountName}.blob.core.windows.net`,
+  sharedKeyCredential
+);
 
 module.exports.generateUrl = async function () {
   const rawBytes = await randomBytes(16);
   const imgName = rawBytes.toString("hex");
 
-  const params = {
-    Bucket: bucketName,
-    Key: imgName,
-    Expires: 120,
-  };
+  const containerClient = blobServiceClient.getContainerClient(containerName);
+  const blobClient = containerClient.getBlobClient(imgName);
 
-  const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
+  const expiresOn = new Date();
+  expiresOn.setMinutes(expiresOn.getMinutes() + 120); // 120 minutes expiry
+
+  const sasToken = generateBlobSASQueryParameters({
+    containerName,
+    blobName: imgName,
+    permissions: BlobSASPermissions.parse("w"), // write permission
+    expiresOn,
+  }, sharedKeyCredential).toString();
+
+  const uploadUrl = `${blobClient.url}?${sasToken}`;
   return uploadUrl;
 };

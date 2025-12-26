@@ -11,6 +11,9 @@ dotenv.config()
 
 const app=express()
 
+//Fix Mongoose deprecation warning
+mongoose.set('strictQuery', false);
+
 //Database connection
 const url=process.env.MONGO_URL
 mongoose.connect(url,()=>{

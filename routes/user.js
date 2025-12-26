@@ -35,18 +35,17 @@ router.post("/register", async (req, res) => {
   console.log(isValid);
 
   if (isValid.success) {
-    let salt = await bcrypt.genSalt(10);
-    let hash = await bcrypt.hash(newUser.password, salt);
-    newUser.password = hash; //encrypting the password
-    
-    const user = new User(newUser);
-    user.save((err, result) => {
-      if (err) {
-        res.json({ success: false, msg: "fail to add user" });
-      } else {
-        res.json({ success: true, msg: "User added successfully" });
-      }
-    });
+    try {
+      let salt = await bcrypt.genSalt(10);
+      let hash = await bcrypt.hash(newUser.password, salt);
+      newUser.password = hash; //encrypting the password
+      
+      const user = new User(newUser);
+      await user.save();
+      res.json({ success: true, msg: "User added successfully" });
+    } catch (err) {
+      res.json({ success: false, msg: "fail to add user" });
+    }
   } else {
     res.json({ success: false, msg: isValid.msg });
   }
@@ -99,37 +98,34 @@ router.post("/login", async (req, res) => {
 });
 
 //SEND CAROUSEL
-router.get("/sendCarousel", (req, res) => {
-  Carousel.find((err, data) => {
-    if (err) {
-      throw err;
-    } else {
-      res.json({ data: data });
-    }
-  });
+router.get("/sendCarousel", async (req, res) => {
+  try {
+    const data = await Carousel.find();
+    res.json({ data: data });
+  } catch (err) {
+    res.status(500).json({ success: false, msg: "Error fetching carousels" });
+  }
 });
 
 //SEND PRODUCT
-router.get("/sendProduct", (req, res) => {
-  Product.find((err, data) => {
-    if (err) {
-      throw err;
-    } else {
-      res.json({ data: data });
-    }
-  });
+router.get("/sendProduct", async (req, res) => {
+  try {
+    const data = await Product.find();
+    res.json({ data: data });
+  } catch (err) {
+    res.status(500).json({ success: false, msg: "Error fetching products" });
+  }
 });
 
 //SEND ONE PRODUCT
-router.post("/sendOneProduct", (req, res) => {
-  let id = req.body.id;
-  Product.findById(id, (err, data) => {
-    if (err) {
-      res.json({ success: false });
-    } else {
-      res.json({ success: true, data: data });
-    }
-  });
+router.post("/sendOneProduct", async (req, res) => {
+  try {
+    let id = req.body.id;
+    const data = await Product.findById(id);
+    res.json({ success: true, data: data });
+  } catch (err) {
+    res.json({ success: false });
+  }
 });
 
 //ADD TO CART
@@ -147,39 +143,41 @@ router.post("/addToCart", verifyToken, async (req, res) => {
     console.log(proExist);
     //if the product is exist in the cart
     if (proExist != -1) {
-      Cart.findOneAndUpdate(
+      await Cart.findOneAndUpdate(
         {
           userId: userId,
           "products.productId": mongoose.Types.ObjectId(productId),
         },
-        { $inc: { "products.$.quantity": 1 } },
-        (err, data) => {}
+        { $inc: { "products.$.quantity": 1 } }
       );
+      res.json({ success: true, msg: "Quantity updated" });
     } else {
       //if the product is not exist in the cart
-      let cart = await Cart.findOne({ userId: userId });
-      let updated = await cart.update({
-        $push: {
-          products: {
-            productId: mongoose.Types.ObjectId(productId),
-            quantity: 1,
+      await Cart.updateOne(
+        { userId: userId },
+        {
+          $push: {
+            products: {
+              productId: mongoose.Types.ObjectId(productId),
+              quantity: 1,
+            },
           },
-        },
-      });
+        }
+      );
+      res.json({ success: true, msg: "Product added to cart" });
     }
   } else {
     //if there is no cart in the name of user
-    let cart = new Cart({
-      userId: userId,
-      products: [{ productId: productId, quantity: 1 }],
-    });
-    cart.save((err, data) => {
-      if (err) {
-        throw err;
-      } else {
-        res.json({ sucess: true, msg: "new cart created" });
-      }
-    });
+    try {
+      let cart = new Cart({
+        userId: userId,
+        products: [{ productId: productId, quantity: 1 }],
+      });
+      await cart.save();
+      res.json({ success: true, msg: "new cart created" });
+    } catch (err) {
+      res.status(500).json({ success: false, msg: "Error creating cart" });
+    }
   }
 });
 
@@ -226,51 +224,50 @@ router.post("/incOrdec", verifyToken, async (req, res) => {
 
   if (value === "inc") {
     console.log("inc");
-    Cart.findOneAndUpdate(
+    await Cart.findOneAndUpdate(
       {
         userId: user,
         "products.productId": mongoose.Types.ObjectId(productId),
       },
       {
         $inc: { "products.$.quantity": 1 },
-      },
-      (err, data) => {
-        res.json({ sucess: true });
       }
     );
+    res.json({ success: true });
   } else {
     console.log("dec");
-
-    Cart.findOneAndUpdate(
+    await Cart.findOneAndUpdate(
       {
         userId: user,
         "products.productId": mongoose.Types.ObjectId(productId),
       },
       {
         $inc: { "products.$.quantity": -1 },
-      },
-      (err, data) => {
-        res.json({ sucess: true });
       }
     );
+    res.json({ success: true });
   }
 });
 
 //REMOVE ITEM FROM CART
 router.post("/removeFromCart", verifyToken, async (req, res) => {
-  let user = req.body.userId;
-  let productId = req.body.productId;
+  try {
+    let user = req.body.userId;
+    let productId = req.body.productId;
 
-  let cart = await Cart.findOne({ userId: user });
-  let updated = await cart.update({
-    $pull: {
-      products: {
-        productId: mongoose.Types.ObjectId(productId),
-      },
-    },
-  });
-  if (updated) {
+    await Cart.updateOne(
+      { userId: user },
+      {
+        $pull: {
+          products: {
+            productId: mongoose.Types.ObjectId(productId),
+          },
+        },
+      }
+    );
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, msg: "Error removing item" });
   }
 });
 
@@ -348,63 +345,41 @@ router.post("/checkout", verifyToken, async (req, res) => {
     total: total,
     orderedAt: new Date(),
   };
-  let order = new Order(newOrder);
-  order.save((err, data) => {
-    if (err) {
-      res.json({ success: false, msg: "failed to place a order" });
+  try {
+    let order = new Order(newOrder);
+    const data = await order.save();
+    if (paymentMethod === "cod") {
+      res.json({ CODsuccess: true, msg: "placed your cod order" });
     } else {
-      if (paymentMethod === "cod") {
-        res.json({ CODsuccess: true, msg: "placed your cod order" });
-      } else {
-        generaterazorpay(data._id, total).then((result) => {
-          res.json({ success: true, order: result });
-        });
-      }
+      const result = await generaterazorpay(data._id, total);
+      res.json({ success: true, order: result });
     }
-  });
+  } catch (err) {
+    res.json({ success: false, msg: "failed to place a order" });
+  }
 });
 
 //PAYMENT VERIFICATION
-router.post("/verifyPayment", verifyToken, (req, res) => {
+router.post("/verifyPayment", verifyToken, async (req, res) => {
   let orderId = req.body.razorpay_order_id;
   let paymentId = req.body.razorpay_payment_id;
   let signature = req.body.razorpay_signature;
   let id = req.body.receipt;
   let userId = req.body.userId;
 
-  signatureVerification(
+  try {
     //payment_verification
-    orderId,
-    paymentId,
-    signature
-  )
-    .then((response) => {
-      //ifSuccessFull
-      //orderPlaced
-      Order.updateOne(
-        { _id: id },
-        { $set: { status: "placed" } },
-        (err, data) => {
-          if (err) {
-            throw err;
-          } else {
-            //removeCart
-            Cart.findOneAndRemove({ userId: userId }, (err, data) => {
-              if (err) {
-                throw err;
-              } else {
-                res.json({ success: true, msg: "payment success" });
-              }
-            });
-          }
-        }
-      );
-    })
-    .catch((err) => {
-      //ifFailed
-      console.log("failed" + err);
-      res.json({ success: false, msg: "payment failed" });
-    });
+    await signatureVerification(orderId, paymentId, signature);
+    //ifSuccessFull - orderPlaced
+    await Order.updateOne({ _id: id }, { $set: { status: "placed" } });
+    //removeCart
+    await Cart.findOneAndDelete({ userId: userId });
+    res.json({ success: true, msg: "payment success" });
+  } catch (err) {
+    //ifFailed
+    console.log("failed" + err);
+    res.json({ success: false, msg: "payment failed" });
+  }
 });
 
 //SEND ORDERS TO USERS
@@ -419,15 +394,14 @@ router.post("/sendOrder", verifyToken, async (req, res) => {
 
 // PRODUCT LISTS
 router.post("/productList", async (req, res) => {
-  let category = req.body.category.toLowerCase();
-  console.log(category);
-  Product.find({ category: category }, (err, data) => {
-    if (err) {
-      throw err;
-    } else {
-      res.json({ success: true, data: data });
-    }
-  });
+  try {
+    let category = req.body.category.toLowerCase();
+    console.log(category);
+    const data = await Product.find({ category: category });
+    res.json({ success: true, data: data });
+  } catch (err) {
+    res.status(500).json({ success: false, msg: "Error fetching products" });
+  }
 });
 
 router.get("/profile", verifyToken, (req, res) => {

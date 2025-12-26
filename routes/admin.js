@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const { generateUrl } = require("../config/s3");
 const jwt = require("jsonwebtoken");
-const { Route53RecoveryReadiness } = require("aws-sdk");
 // MODELS
 const Carousel = require("../models/carousel");
 const Product = require("../models/product");
@@ -30,31 +29,29 @@ router.post("/addCarousel", verifyToken, async (req, res) => {
   };
   let isValid = carouselJoi(newCarousel);
   if (isValid.success) {
-    let carousel = new Carousel(newCarousel);
-    carousel.save((err, data) => {
-      if (err) {
-        res.json({ success: false, msg: "Adding Carousel is Failed" });
-      } else {
-        res.json({ success: true, msg: "Adding Carousel is Successfull" });
-      }
-    });
+    try {
+      let carousel = new Carousel(newCarousel);
+      await carousel.save();
+      res.json({ success: true, msg: "Adding Carousel is Successfull" });
+    } catch (err) {
+      res.json({ success: false, msg: "Adding Carousel is Failed" });
+    }
   } else {
     res.json({ success: false, msg: isValid.msg });
   }
 });
 
 // REMOVE CAROUSEL
-router.post("/removeCarousel", (req, res) => {
-  let id = req.body._id;
-  console.log(id);
-  Carousel.findByIdAndDelete(id, (err, data) => {
-    if (err) {
-      throw err;
-    } else {
-      console.log(data);
-      res.json({ success: true, data: data });
-    }
-  });
+router.post("/removeCarousel", async (req, res) => {
+  try {
+    let id = req.body._id;
+    console.log(id);
+    const data = await Carousel.findByIdAndDelete(id);
+    console.log(data);
+    res.json({ success: true, data: data });
+  } catch (err) {
+    res.status(500).json({ success: false, msg: "Error removing carousel" });
+  }
 });
 
 //ADD PRODUCT
@@ -70,28 +67,26 @@ router.post("/addProduct", verifyToken, async (req, res) => {
 
   let isValid = productJoi(newProduct);
   if (isValid.success) {
-    let product = new Product(newProduct);
-    product.save((err, data) => {
-      if (err) {
-        res.json({ success: false, msg: "Adding Product is Failed" });
-      } else {
-        res.json({ success: true, msg: "Adding Product is Successfull" });
-      }
-    });
+    try {
+      let product = new Product(newProduct);
+      await product.save();
+      res.json({ success: true, msg: "Adding Product is Successfull" });
+    } catch (err) {
+      res.json({ success: false, msg: "Adding Product is Failed" });
+    }
   } else {
     res.json({ success: false, msg: isValid.msg });
   }
 });
 
 // ALL ORDERS
-router.get("/allOrders", verifyToken, (req, res) => {
-  Order.find((err, data) => {
-    if (err) {
-      throw err;
-    } else {
-      res.json({ success: true, data: data });
-    }
-  });
+router.get("/allOrders", verifyToken, async (req, res) => {
+  try {
+    const data = await Order.find();
+    res.json({ success: true, data: data });
+  } catch (err) {
+    res.status(500).json({ success: false, msg: "Error fetching orders" });
+  }
 });
 
 // CHANGE STATUS
